@@ -79,8 +79,27 @@
 %  \tableofcontents
 %\end{frame}
 
-\begin{frame}{}
+\begin{frame}{Motivation}
+\vspace{0.5 cm}
+In High Energy Physics (HEP), $>$99\% of data analysis code is
+\begin{itemize}
+\item compiled C++ (modules fitting into a larger framework)
+\item {\it interpreted} C++ (don't ask)
+\item Python (the young and hip)
+\end{itemize}
 
+\vspace{0.5 cm}
+But these are fairly regular operations, at least in the large data-reduction phase:
+\begin{itemize}
+\item filtering events of interest (skimming)
+\item selecting variables of interest (slimming)
+\item evaluating simple mathematical operations, e.g.
+\begin{itemize}
+\item invariant mass: $\sqrt{(E_1 + E_2)^2 - |\vec{p}_1 + \vec{p}_2|^2}$
+\item min/max of a collection
+\item averages, standard deviations
+\end{itemize}
+\end{itemize}
 \end{frame}
 
 \end{document}
