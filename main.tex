@@ -284,10 +284,35 @@ Having to address unnecessary concepts in every query (e.g.\ saying that you're 
 \end{frame}
 
 \begin{frame}{What I've been thinking}
-I think the functional expressions are ideal: introduce ``higher order functions'' to SQL?
+\vspace{0.25 cm}
+From a user's perspective, I liked the Scala examples best (easily translatable into any other functional syntax).
 
+\vspace{0.25 cm}
+But the semantics should also be declarative to develop better backend optimizations.
 
+\vspace{0.25 cm}
+\begin{uncoverenv}<2->
+\textcolor{darkblue}{\bf Idea:} introduce ``higher order functions'' to SQL?
+\begin{itemize}
+\item add syntax like {\tt x -> sin(x) + 3*x} to expressions
+\item add methods like the following to arrays
+\begin{itemize}
+\item {\tt \scriptsize COLLECTION.map(function1)}
+\item {\tt \scriptsize COLLECTION.reduce(function2)} {\it not} a DAF: operates only on {\it tracks within one event}.
+\item {\tt \scriptsize COLLECTION.count}
+\item {\tt \scriptsize COLLECTION.sum}
+\item {\tt \scriptsize COLLECTION.max(function1, N)} top-N subcollection.
+\item {\tt \scriptsize join(COLLECTION1, COLLECTION2)} {\it not} joining events, but {\it tracks within one event} (small).
+\item {\tt \scriptsize COLLECTION.pairs} like the above, but unique pairs of indexes.
+\end{itemize}
+\item add assignments (syntactic sugar).
+\end{itemize}
+\end{uncoverenv}
+\end{frame}
+
+\begin{frame}{}
 
 \end{frame}
+
 
 \end{document}
