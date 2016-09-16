@@ -31,7 +31,7 @@
 
 \lstset{ %
   backgroundcolor=\color{white},      % choose the background color
-  basicstyle=\ttfamily\small,         % size of fonts used for the code
+  basicstyle=\ttfamily\scriptsize,         % size of fonts used for the code
   breaklines=true,                    % automatic line breaking only at whitespace
   captionpos=b,                       % sets the caption-position to bottom
   commentstyle=\color{commentgreen},  % comment style
@@ -97,9 +97,197 @@ But these are fairly regular operations, at least in the large data-reduction ph
 \begin{itemize}
 \item invariant mass: $\sqrt{(E_1 + E_2)^2 - |\vec{p}_1 + \vec{p}_2|^2}$
 \item min/max of a collection
-\item averages, standard deviations
+\item averages, standard deviations, \ldots
 \end{itemize}
 \end{itemize}
+
+\vspace{0.5 cm}
+Could be declarative: simple for users, optimized on the backend!
+\end{frame}
+
+\begin{frame}[fragile]{Typical data structure}
+\vspace{0.25 cm}
+\small
+{\bf Tree-like with a known schema.} {\it Maybe} with cross-references (e.g.\ showers matched to tracks), but at least a DAG you can pretend is a tree.
+\begin{verbatim}
+event: struct
+  |
+  +--- timestamp: bigint
+  +--- missing energy: float
+  +--- tracks: array of struct
+  |      |
+  |      +--- momentum: float
+  |      +--- theta angle: float
+  |      +--- hits: array of struct
+  |             |
+  |             +--- detector id: int
+  |             +--- charge: float
+  |             +--- time: float
+  |             +--- ...
+  +--- showers: array of struct
+         |
+         +--- ...
+\end{verbatim}
+\end{frame}
+
+\begin{frame}{Typical queries}
+\vspace{0.25 cm}
+{\bf Broad classes:}
+\begin{description}
+\item[Reduce-like:] transforms a set of records into a single record (maybe different type). \mbox{Aggregations: e.g.\ Histogrammar.\hspace{-1 cm}}
+\item[Map-like:] transforms a set of records into another set of records (maybe different type). Looking for a solution.
+\end{description}
+
+\vspace{0.25 cm}
+{\bf Simplification:} the source dataset is {\it read-only} and is {\it not} updating in real-time. No transactions are taking place.
+
+\vspace{0.25 cm}
+{\bf Examples:}
+\begin{itemize}
+\item ``Momentum of the track with the most hits with theta between $-2.4$ and $2.4$.''
+\item ``Average charge of all hits with time in 0--10 ps on all tracks with momentum greater than 10 GeV/c.''
+\item ``Weighted average theta of the two tracks with highest momentum.''
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Illustrations in Scala}
+\vspace{0.25 cm}
+{\tiny
+\begin{verbatim}
+event: struct
+  |
+  +--- timestamp: bigint
+  +--- missing energy: float
+  +--- tracks: array of struct
+  |      |
+  |      +--- momentum: float
+  |      +--- theta angle: float
+  |      +--- hits: array of struct
+  |             |
+  |             +--- detector id: int
+  |             +--- charge: float
+  |             +--- time: float
+  |             +--- ...
+  +--- showers: array of struct
+         |
+         +--- ...
+\end{verbatim}}
+
+\begin{itemize}
+\item ``Momentum of the track with the most hits with theta between $-2.4$ and $2.4$.''
+\end{itemize}
+
+\begin{lstlisting}[language=scala]
+// missing check for when zero tracks passed filter!
+{event => event.tracks                      // get tracks
+               .filter(abs(_.theta) < 2.4)  // theta range
+               .maxBy(_.hits.size)          // most hits
+               .momentum                    // return momentum
+}
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Illustrations in Scala}
+\vspace{0.35 cm}
+\begin{itemize}
+\item ``Average charge of all hits with time in 0--10 ps on all tracks with momentum greater than 10 GeV/c.''
+\end{itemize}
+
+\begin{lstlisting}[language=scala]
+{event => mean(
+            event.tracks                    // get tracks
+                 .filter(_.momentum > 10)   // in momentum range
+                 .flatMap(_.hits)           // explode to hits
+                 .filter(_.time < 10)       // in time range
+                 .map(_.charge)             // return charges
+              )}                            // to mean function
+\end{lstlisting}
+
+\begin{itemize}
+\item ``Weighted average theta of the two tracks with highest momentum.''
+\end{itemize}
+
+\begin{lstlisting}[language=scala]
+// again missing check for less than two tracks!
+{event => val List(one, two) =              // unpack and assign
+              event.tracks                  // get tracks
+                   .sortBy(_.momentum)      // sort by momentum
+                   .take(2)                 // take two
+          // now compute the weighted mean of the two structs
+          (one.theta*one.momentum + two.theta*two.momentum) /
+              (one.momentum + two.momentum)
+}\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Use SQL?}
+\vspace{0.3 cm}
+It is valuable to use pre-existing standards if applicable. SQL supports ``arrays of structs,'' can we use it? \uncover<2->{{\bf No.}}
+
+\begin{uncoverenv}<2->
+\begin{lstlisting}[language=sql, basicstyle=\ttfamily\scriptsize]
+ WITH hit_stats AS (
+  SELECT hit.track_id, COUNT(*) AS hit_count FROM hit GROUP BY hit.track_id
+ ),
+ track_sorted AS (
+    SELECT track.*, 
+    ROW_NUMBER() OVER (
+     PARTITION BY track.event_id
+     ORDER BY hit_stats.hit_count DESC
+    )
+  track_ordinal FROM track 
+    INNER JOIN hit_stats ON hit_stats.track_id = track.id
+    WHERE track.theta > -2.4 AND track.theta < 2.4
+ )
+
+ SELECT * FROM event
+   INNER JOIN track_sorted ON track_sorted.event_id = event.id
+
+WHERE
+  track_sorted.track_ordinal = 1
+\end{lstlisting}
+\end{uncoverenv}
+\end{frame}
+
+\begin{frame}[fragile]{Use RDF or a graph query language?}
+\vspace{0.25 cm}
+{\bf Maybe.} This is SPARQL:
+
+\begin{lstlisting}[language=sql]
+PREFIX : <http://yournamespace.com/accelerator/> .
+
+SELECT ?momentum (MAX(?hitcount) as ?maxhits)
+WHERE {
+    SELECT ?momentum (COUNT(?hits) AS ?hitcount)
+    WHERE ?track :momentum ?momentum .
+          ?track :theta ?theta .
+          FILTER (?theta > -2.4 AND ?theta < 2.4) .
+          ?track :hits ?hits
+    GROUP BY ?track
+}
+GROUP BY ?momentum;
+\end{lstlisting}
+
+\vspace{0.25 cm}
+XPath? (Idea from today's Cypher talk\ldots)
+
+\vspace{0.25 cm}
+I'm on the fence about this.
+
+\vspace{0.25 cm}
+\begin{minipage}{\linewidth}
+\scriptsize
+RDF is pretty well established and graph query languages are becoming established, but they introduce more concepts than are needed for this problem.
+
+\vspace{0.25 cm}
+Having to address unnecessary concepts in every query (e.g.\ saying that you're looking for events with tracks when {\it every} event has tracks) is distracting.
+\end{minipage}
+\end{frame}
+
+\begin{frame}{What I've been thinking}
+I think the functional expressions are ideal: introduce ``higher order functions'' to SQL?
+
+
+
 \end{frame}
 
 \end{document}
