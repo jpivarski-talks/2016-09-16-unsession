@@ -89,6 +89,7 @@ In High Energy Physics (HEP), $>$99\% of data analysis code is
 \end{itemize}
 
 \vspace{0.5 cm}
+\begin{uncoverenv}<2->
 But these are fairly regular operations, at least in the large data-reduction phase:
 \begin{itemize}
 \item filtering events of interest (skimming)
@@ -100,9 +101,12 @@ But these are fairly regular operations, at least in the large data-reduction ph
 \item averages, standard deviations, \ldots
 \end{itemize}
 \end{itemize}
+\end{uncoverenv}
 
 \vspace{0.5 cm}
+\begin{uncoverenv}<3->
 Could be declarative: simple for users, optimized on the backend!
+\end{uncoverenv}
 \end{frame}
 
 \begin{frame}[fragile]{Typical data structure}
@@ -139,15 +143,19 @@ event: struct
 \end{description}
 
 \vspace{0.25 cm}
+\begin{uncoverenv}<2->
 {\bf Simplification:} the source dataset is {\it read-only} and is {\it not} updating in real-time. No transactions are taking place.
+\end{uncoverenv}
 
 \vspace{0.25 cm}
+\begin{uncoverenv}<3->
 {\bf Examples:}
 \begin{itemize}
 \item ``Momentum of the track with the most hits with theta between $-2.4$ and $2.4$.''
 \item ``Average charge of all hits with time in 0--10 ps on all tracks with momentum greater than 10 GeV/c.''
 \item ``Weighted average theta of the two tracks with highest momentum.''
 \end{itemize}
+\end{uncoverenv}
 \end{frame}
 
 \begin{frame}[fragile]{Illustrations in Scala}
@@ -203,6 +211,7 @@ event: struct
               )}                            // to mean function
 \end{lstlisting}
 
+\begin{uncoverenv}<2->
 \begin{itemize}
 \item ``Weighted average theta of the two tracks with highest momentum.''
 \end{itemize}
@@ -217,11 +226,12 @@ event: struct
           (one.theta*one.momentum + two.theta*two.momentum) /
               (one.momentum + two.momentum)
 }\end{lstlisting}
+\end{uncoverenv}
 \end{frame}
 
 \begin{frame}[fragile]{Use SQL?}
 \vspace{0.3 cm}
-It is valuable to use pre-existing standards if applicable. SQL supports ``arrays of structs,'' can we use it? \uncover<2->{{\bf No.}}
+It is valuable to use pre-existing standards if applicable. SQL supports ``arrays of structs,'' can we use it? \uncover<2->{\textcolor{red}{\bf No.}}
 
 \begin{uncoverenv}<2->
 \begin{lstlisting}[language=sql, basicstyle=\ttfamily\scriptsize]
@@ -268,9 +278,12 @@ GROUP BY ?momentum;
 \end{lstlisting}
 
 \vspace{0.25 cm}
+\begin{uncoverenv}<2->
 XPath? (Idea from today's Cypher talk\ldots)
+\end{uncoverenv}
 
 \vspace{0.25 cm}
+\begin{uncoverenv}<3->
 I'm on the fence about this.
 
 \vspace{0.25 cm}
@@ -281,6 +294,7 @@ RDF is pretty well established and graph query languages are becoming establishe
 \vspace{0.25 cm}
 Having to address unnecessary concepts in every query (e.g.\ saying that you're looking for events with tracks when {\it every} event has tracks) is distracting.
 \end{minipage}
+\end{uncoverenv}
 \end{frame}
 
 \begin{frame}{What I've been thinking}
@@ -310,9 +324,59 @@ But the semantics should also be declarative to develop better backend optimizat
 \end{uncoverenv}
 \end{frame}
 
-\begin{frame}{}
+\begin{frame}[fragile]{Other cases\ldots?}
+\vspace{0.5 cm}
+\textcolor{darkblue}{Common task:} match simulated particles with their reconstructed counterparts within each event.
 
+\vspace{0.25 cm}
+\begin{itemize}
+\item Might assign same reconstructed to multiple simulated:
+\end{itemize}
+\begin{lstlisting}
+simulated.map(s -> (s, reconstructed.map(r -> dist(s, r)).min))
+\end{lstlisting}
+
+\vspace{0.25 cm}
+\begin{uncoverenv}<2->
+\begin{itemize}
+\item Might assign same simulated to multiple reconstructed:
+\end{itemize}
+\begin{lstlisting}
+reconstructed.map(r -> (simulated.map(s -> dist(s, r)).min, r))
+\end{lstlisting}
+\end{uncoverenv}
+
+\vspace{0.25 cm}
+\begin{uncoverenv}<3->
+\begin{itemize}
+\item Have to introduce new built-in function to get exclusive matches:
+\end{itemize}
+\begin{lstlisting}
+bestMatch(simulated, reconstructed, (s, r) -> dist(s, r))
+greedyMatch(simulated, reconstructed, (s, r) -> dist(s, r))
+greedyMatch(reconstructed, simulated, (r, s) -> dist(s, r))
+\end{lstlisting}
+\end{uncoverenv}
 \end{frame}
 
+\begin{frame}{Middle approach}
+\vspace{0.5 cm}
+\begin{center}
+\begin{minipage}{0.91\linewidth}
+\begin{center}
+Might develop new language that is {\it heavily inspired by} existing languages?
+
+\vspace{1 cm}
+These types of queries are not too domain-specific, even {\tt \small bestMatch/greedyMatch}. Does it have other applications?
+
+\vspace{1 cm}
+What suggestions do {\it you} have? Help me shape a language (or convince me that I should really use language X)!
+
+\vspace{1 cm}
+\textcolor{gray}{Now I stop talking.}
+\end{center}
+\end{minipage}
+\end{center}
+\end{frame}
 
 \end{document}
